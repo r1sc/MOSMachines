@@ -11,7 +11,7 @@ glViewport(0, 0, form.ClientSize.Width, form.ClientSize.Height);
 
 var shader = new Shader(File.ReadAllText(@"Shaders\output.glsl"));
 shader.Use();
-shader.SetUniformDirect("bending_factor", 0.2f);
+shader.SetUniformDirect("bending_factor", 0.5f);
 shader.SetUniformDirect("num_lines", 220);
 
 var c64 = new C64();

@@ -17,7 +17,7 @@
 
 	<ItemGroup>
 		<None Update="Shaders\output.glsl">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 

@@ -11,7 +11,7 @@ namespace cs64
         private byte PORT_REGISTER { get => Memory.Data[1]; set => Memory.Data[1] = value; }
         private bool LORAM => (PORT_REGISTER & 1) == 1;
         private bool HIRAM => (PORT_REGISTER & 2) == 2;
-        private bool CHAREN => (PORT_REGISTER & 4) == 0;
+        private bool CHAREN => (PORT_REGISTER & 4) == 4;
 
 
         // Devices
@@ -21,7 +21,7 @@ namespace cs64
 
         private readonly RAMDevice _vicMemory = new(new byte[0x400]);
         private readonly Fake6502 _cpu;
-        public readonly CIA1 _cia1;
+        public readonly CIA _cia1;
 
         private uint[] _palette = new uint[]{
             0x000000FFu,
@@ -54,12 +54,22 @@ namespace cs64
             _random.NextBytes(Memory.Data);
 
             PORT_DIRECTIONAL_DATA_REGISTER = 0x2F;
-            PORT_REGISTER = 0x7;
+            PORT_REGISTER = 0x37;
 
             _cpu = new Fake6502(true, Read6502, Write6502);
             _cpu.Reset();
 
-            _cia1 = new CIA1(_cpu.IssueIRQ);
+            _cia1 = new CIA(_cpu.IssueIRQ, ReadCIA1, WriteCIA1);
+        }
+
+        byte ReadCIA1(CIA.Port port)
+        {
+            return 0;
+        }
+
+        void WriteCIA1(CIA.Port port, byte value)
+        {
+
         }
 
         private struct AddressDecodeResult
@@ -76,32 +86,42 @@ namespace cs64
             }
         }
 
-
         private AddressDecodeResult DecodeAddress(ushort address)
         {
-            if (address >= 0xE000 && HIRAM)
+            var charRomEnabled = !CHAREN && (HIRAM || LORAM);
+            var ioEnabled = CHAREN && (HIRAM || LORAM);
+            var basicEnabled = HIRAM && LORAM;
+            var kernalEnabled = HIRAM;
+
+            if (kernalEnabled && address >= 0xE000 && address <= 0xFFFF)
             {
                 return new AddressDecodeResult(false, _kernal, address - 0xE000);
             }
-            else if (address >= 0xDC00 && address <= 0xDCFF)
+            else if (basicEnabled && address >= 0xA000 && address <= 0xBFFF)
             {
-                // CIA1
-                return new AddressDecodeResult(true, _cia1, address - 0xDC00);
+                return new AddressDecodeResult(false, _basic, address - 0xA000);
             }
-            else if (address >= 0xD000)
+            else if (address >= 0xD000 && address <= 0xDFFF)
             {
-                if (CHAREN)
+                if (charRomEnabled)
                 {
                     return new AddressDecodeResult(false, _chargen, address - 0xD000);
                 }
-                else if (address < 0xD400)
+                else if (ioEnabled)
                 {
-                    return new AddressDecodeResult(true, _vicMemory, address - 0xD000);
+                    if(address >= 0xD000 && address <= 0xD3FF)
+                    {
+                        return new AddressDecodeResult(true, _vicMemory, address & 0x3F);
+                    }
+                    else if(address >= 0xDC00 && address <= 0xDCFF)
+                    {
+                        return new AddressDecodeResult(true, _cia1, address & 0x0F);
+                    }
+                    //else if(address >= 0xDD00 && address <= 0xDDFF)
+                    //{
+                    //    // CIA2
+                    //}
                 }
-            }
-            else if (address >= 0xA000 && address < 0xC000 && LORAM)
-            {
-                return new AddressDecodeResult(false, _basic, address - 0xA000);
             }
 
             return new AddressDecodeResult(true, Memory, address);
@@ -128,7 +148,7 @@ namespace cs64
         const ushort Vic2_ScreenControlRegister2 = 0xD016 - Vic2_BaseAddress;
 
         const ushort ColorRam_BaseAddress = 0xD800;
-                
+
         private void ExecTicks(uint tickcount)
         {
             var clockgoal6502 = _cpu.ClockTicks6502 + tickcount;
@@ -157,7 +177,6 @@ namespace cs64
                 byte char_y = (byte)((line - 10 - v_scroll) / 8);
                 byte char_offset_y = (byte)((line - 10 - v_scroll) % 8);
 
-
                 for (var x = 0; x < 340; x++)
                 {
                     byte color;
@@ -165,7 +184,7 @@ namespace cs64
                         color = borderColor;
                     else
                     {
-                        byte char_x = (byte)((x - 10) / 8);
+                        byte char_x = (byte)((x - 10) >> 3);
                         byte char_offset_x = (byte)((x - 10) % 8);
 
                         byte chr = Memory.Data[0x400 + (char_y * 40) + char_x];
