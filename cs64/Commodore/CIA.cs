@@ -1,5 +1,4 @@
 ﻿using MOS;
-using System.Runtime.CompilerServices;
 
 namespace cs64;
 
@@ -143,13 +142,9 @@ class CIA : IDevice
         switch (register)
         {
             case Register.PeripheralDataRegA:
-                {
-                    return 0x81;
-                }
+                return 0;
             case Register.PeripheralDataRegB:
-                {
-                    return 0xFF;
-                }
+                return 0;
             case Register.DataDirectionRegA:
                 return _ddra;
             case Register.DataDirectionRegB:
@@ -177,17 +172,9 @@ class CIA : IDevice
                 _interruptControlData = 0;
                 return (byte)d;
             case Register.ControlRegA:
-                {
-                    var oldValue = (byte)CRA;
-                    CRA = 0;
-                    return oldValue;
-                }
+                return (byte)CRA;
             case Register.ControlRegB:
-                {
-                    var oldValue = (byte)CRB;
-                    CRB = 0;
-                    return oldValue;
-                }
+                return (byte)CRB;
             default:
                 throw new ArgumentOutOfRangeException($"Address out of range: {address}");
         }
@@ -242,7 +229,7 @@ class CIA : IDevice
                 }
                 else
                 {
-                    _interruptControlMask &= (InterruptControlMask)~value;
+                    _interruptControlMask &= (InterruptControlMask)~(value & 127);
                 }
                 break;
             case Register.ControlRegA:
@@ -279,7 +266,7 @@ class CIA : IDevice
         }
     }
 
-    public class Timer
+    private class Timer
     {
         public ushort ActualValue { get; set; }
         public ushort Latch { get; set; }
@@ -304,9 +291,8 @@ class CIA : IDevice
                 {
                     if (StopAfterUnderflow)
                     {
-                        Running = false; // Stop timer
+                        Running = false;
                     }
-
                     ActualValue = Latch;
                 }
             }

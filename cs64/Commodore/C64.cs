@@ -109,9 +109,9 @@ class C64
             }
             else if (ioEnabled)
             {
-                if (address >= 0xD000 && address <= 0xD3FF)
+                if (address >= 0xD000 && address <= 0xD02E)
                 {
-                    return new AddressDecodeResult(true, _vicMemory, address & 0x3F);
+                    return new AddressDecodeResult(true, _vicMemory, address - 0xD000);
                 }
                 else if (address >= 0xDC00 && address <= 0xDCFF)
                 {
@@ -149,25 +149,48 @@ class C64
 
     const ushort ColorRam_BaseAddress = 0xD800;
 
-    private void ExecTicks(uint tickcount)
+    List<ushort> _breakpoints = new()
     {
-        var clockgoal6502 = _cpu.ClockTicks6502 + tickcount;
+        //0xEA31, // IRQ Vector
+        //0xF69B,  // Update time
+        //0xFF48
+    };
 
-        while (_cpu.ClockTicks6502 < clockgoal6502)
+    private void ExecTicks(uint clockgoal6502)
+    {
+        _cpu.ClockTicks6502 = 0;
+        for(var i = 0; i < clockgoal6502; i++)
         {
-            _cpu.Step();
+            //if(_breakpoints.Any(x => x == _cpu.PC))
+            //{
+            //    Console.WriteLine($".,{_cpu.PC.ToHex()}\tA: ${_cpu.A.ToHex()}\tX: ${_cpu.X.ToHex()}\tY: ${_cpu.Y.ToHex()}");
+            //    Console.WriteLine($"SP: ${_cpu.SP.ToHex()}");
+            //    var d = $"{Disassembler.DisassembleNext(Read6502, _cpu.PC).Item1}";
+            //    Console.WriteLine(d);
+            //    Console.WriteLine();
+            //    Console.ReadLine();
+            //}
+            if(_cpu.ClockTicks6502 <= clockgoal6502)
+                _cpu.Step();
+
             _cia1.Step();
         }
     }
 
     public void RunFrame()
     {
+        for (var line = 0; line < 312; line++)
+        {
+            _vicMemory.Data[Vic2_CurrentRasterLine] = (byte)line;
+            _cpu.ClockTicks6502 = 0;
+            ExecTicks(63);
+        }
+    }
+
+    public void DrawFrame()
+    {
         for (byte line = 0; line < 220; line++)
         {
-            _vicMemory.Data[Vic2_CurrentRasterLine] = line;
-
-            ExecTicks(64);
-
             byte borderColor = _vicMemory.Data[Vic2_BorderColor];
             byte bgColor = _vicMemory.Data[Vic2_BackgroundColor];
 
@@ -198,4 +221,10 @@ class C64
             }
         }
     }
+}
+
+public static class HexExtensions
+{
+    public static string ToHex(this ushort v) => v.ToString("X").PadLeft(4, '0');
+    public static string ToHex(this byte v) => v.ToString("X").PadLeft(2, '0');
 }

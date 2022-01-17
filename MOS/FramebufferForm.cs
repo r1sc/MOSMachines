@@ -70,29 +70,31 @@ namespace MOS.OpenGL
         {
             return Marshal.GetDelegateForFunctionPointer(GL.wglGetProcAddress(name), typeof(T));
         }
+
         #endregion
 
-        private readonly Graphics _graphics;
-        private readonly IntPtr _hdc;
+        private Graphics _graphics;
+        private IntPtr _hdc;
+        private IntPtr _context;
+
         private double _prevSecs = DateTime.Now.TimeOfDay.TotalSeconds;
-        private readonly IntPtr _context;
-        private readonly float _aspect;
+        private float _aspect;
         private Texture _framebufferTexture;
         private Quad _quad;
+        private bool _initialized;
 
         public int MouseX, MouseY;
         public float DeltaTime;
 
-        public FramebufferForm(Size framebufferSize)
+        public FramebufferForm()
         {
-            _aspect = framebufferSize.Width / (float)framebufferSize.Height;
-
-            ClientSize = new Size(framebufferSize.Width * 2, framebufferSize.Height * 2);
-
             SetStyle(ControlStyles.UserPaint, true);
             SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-            //Cursor.Hide();
+        }
 
+        public void InitializeOpenGL(Size framebufferSize)
+        {
+            _initialized = true;
             _graphics = CreateGraphics();
             _hdc = _graphics.GetHdc();
 
@@ -135,13 +137,15 @@ namespace MOS.OpenGL
             GL.LoadGLFuncs();
 
             _wglSwapIntervalEXT = (del_wglSwapIntervalEXT)GetPointer<del_wglSwapIntervalEXT>("wglSwapIntervalEXT");
-            _wglSwapIntervalEXT(1);
+            _wglSwapIntervalEXT(1); // 1 = vsync on, 0 = vsync off
 
-
-            _framebufferTexture = new Texture(framebufferSize.Width, framebufferSize.Height);
             _quad = new Quad();
 
-            Show();
+            _aspect = framebufferSize.Width / (float)framebufferSize.Height;
+
+            if (_framebufferTexture != null)
+                _framebufferTexture.Dispose();
+            _framebufferTexture = new Texture(framebufferSize.Width, framebufferSize.Height);
         }
 
         private static readonly bool[] KeysDown = new bool[256];
@@ -171,6 +175,14 @@ namespace MOS.OpenGL
         {
             base.OnResize(e);
 
+            ResizeViewport();
+        }
+
+        public void ResizeViewport()
+        {
+            if (!_initialized)
+                return;
+
             var width = (float)ClientSize.Width;
             var height = width / _aspect;
 
@@ -194,10 +206,9 @@ namespace MOS.OpenGL
 
         public void Flip()
         {
-            DwmFlush();
+            //DwmFlush();
             SwapBuffers(_hdc);
             Array.Copy(KeysDown, KeysDownPrevFrame, KeysDownPrevFrame.Length);
-            Application.DoEvents();
 
             //if (!IsDisposed)
             //{
@@ -217,6 +228,14 @@ namespace MOS.OpenGL
             base.Dispose(disposing);
             wglDeleteContext(_context);
             _graphics.ReleaseHdc(_hdc);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (_initialized)
+                return;
+
+            e.Graphics.FillRectangle(Brushes.Black, e.ClipRectangle);
         }
     }
 }
