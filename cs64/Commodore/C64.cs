@@ -7,7 +7,7 @@ class C64
     public readonly RAMDevice Memory = new(new byte[1024 * 64]);
     public uint[] VideoBuffer;
 
-    private byte PORT_DIRECTIONAL_DATA_REGISTER { get => Memory.Data[0]; set => Memory.Data[0] = value; }
+    private byte PORT_DIRECTIONAL_DATA_REGISTER { set => Memory.Data[0] = value; }
     private byte PORT_REGISTER { get => Memory.Data[1]; set => Memory.Data[1] = value; }
     private bool LORAM => (PORT_REGISTER & 1) == 1;
     private bool HIRAM => (PORT_REGISTER & 2) == 2;
@@ -45,9 +45,9 @@ class C64
 
     public C64()
     {
-        _kernal = new ROMDevice(File.ReadAllBytes("Roms/kernal"));
-        _basic = new ROMDevice(File.ReadAllBytes("Roms/basic"));
-        _chargen = new ROMDevice(File.ReadAllBytes("Roms/chargen"));
+        _kernal = new ROMDevice(File.ReadAllBytes("Roms/kernal_generic.rom"));
+        _basic = new ROMDevice(File.ReadAllBytes("Roms/basic_generic.rom"));
+        _chargen = new ROMDevice(File.ReadAllBytes("Roms/chargen_openroms.rom"));
 
         VideoBuffer = new uint[340 * 220];
 
@@ -64,12 +64,13 @@ class C64
 
     byte ReadCIA1(CIA.Port port)
     {
+        // TODO
         return 0;
     }
 
     void WriteCIA1(CIA.Port port, byte value)
     {
-
+        // TODO
     }
 
     private struct AddressDecodeResult
