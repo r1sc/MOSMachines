@@ -142,9 +142,9 @@ class CIA : IDevice
         switch (register)
         {
             case Register.PeripheralDataRegA:
-                return 0;
+                return _readPort(Port.A);
             case Register.PeripheralDataRegB:
-                return 0;
+                return _readPort(Port.B);
             case Register.DataDirectionRegA:
                 return _ddra;
             case Register.DataDirectionRegB:

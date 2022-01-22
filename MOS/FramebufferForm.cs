@@ -148,25 +148,40 @@ namespace MOS.OpenGL
             _framebufferTexture = new Texture(framebufferSize.Width, framebufferSize.Height);
         }
 
-        private static readonly bool[] KeysDown = new bool[256];
-        private static readonly bool[] KeysDownPrevFrame = new bool[256];
+        private readonly bool[] KeysDown = new bool[256];
+        private readonly bool[] KeysDownPrevFrame = new bool[256];
 
-        public static bool IsKeyDown(Keys key)
+        public bool IsKeyDown(Keys key)
         {
             return KeysDown[(byte)key];
         }
 
-        public static bool IsKeyHit(Keys key)
+        public bool IsKeyHit(Keys key)
         {
             return KeysDown[(byte)key] && KeysDownPrevFrame[(byte)key] == false;
         }
 
-        private void GLForm_KeyUp(object sender, KeyEventArgs e)
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            const int WM_KEYDOWN = 0x100;
+            const int WM_KEYUP = 0x101;
+            if (msg.Msg == WM_KEYDOWN)
+            {
+                KeysDown[(byte)keyData] = true;
+            } else if(msg.Msg == WM_KEYUP)
+            {
+                KeysDown[(byte)keyData] = false;
+            }
+            return true;
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
         {
             KeysDown[(byte)e.KeyCode] = false;
         }
 
-        private void GLForm_KeyDown(object sender, KeyEventArgs e)
+
+        protected override void OnKeyDown(KeyEventArgs e)
         {
             KeysDown[(byte)e.KeyCode] = true;
         }

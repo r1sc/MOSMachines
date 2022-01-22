@@ -15,7 +15,7 @@ shader.Use();
 shader.SetUniformDirect("bending_factor", 0.5f);
 shader.SetUniformDirect("num_lines", 220);
 
-var c64 = new C64();
+var c64 = new C64(framebuffer);
 
 framebuffer.Show();
 framebuffer.ResizeViewport();

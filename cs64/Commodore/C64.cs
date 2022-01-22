@@ -1,4 +1,5 @@
 ﻿using MOS;
+using MOS.OpenGL;
 
 namespace cs64;
 
@@ -42,12 +43,13 @@ class C64
             0xBBBBBBFFu
         };
     private readonly Random _random = new Random();
+    private readonly FramebufferForm _framebufferForm;
 
-    public C64()
+    public C64(FramebufferForm framebufferForm)
     {
-        _kernal = new ROMDevice(File.ReadAllBytes("Roms/kernal_generic.rom"));
-        _basic = new ROMDevice(File.ReadAllBytes("Roms/basic_generic.rom"));
-        _chargen = new ROMDevice(File.ReadAllBytes("Roms/chargen_openroms.rom"));
+        _kernal = new ROMDevice(File.ReadAllBytes("Roms/kernal"));
+        _basic = new ROMDevice(File.ReadAllBytes("Roms/basic"));
+        _chargen = new ROMDevice(File.ReadAllBytes("Roms/chargen"));
 
         VideoBuffer = new uint[340 * 220];
 
@@ -60,17 +62,57 @@ class C64
         _cpu.Reset();
 
         _cia1 = new CIA(_cpu.IssueIRQ, ReadCIA1, WriteCIA1);
+        _framebufferForm = framebufferForm;
     }
+
+    Keys[] _keyboardmap = new Keys[]
+    {
+        Keys.Delete, Keys.Return, Keys.Left, Keys.F7, Keys.F1, Keys.F3, Keys.F5, Keys.Up,
+        Keys.D3, Keys.W, Keys.A, Keys.D4, Keys.Z, Keys.S, Keys.E, Keys.ShiftKey,
+        Keys.D5, Keys.R, Keys.D, Keys.D6, Keys.C, Keys.F, Keys.T, Keys.X,
+        Keys.D7, Keys.Y, Keys.G, Keys.D8, Keys.B, Keys.H, Keys.U, Keys.V,
+        Keys.D9, Keys.I, Keys.J, Keys.D0, Keys.M, Keys.K, Keys.O, Keys.N,
+        Keys.Oemplus, Keys.P, Keys.L, Keys.OemMinus, Keys.OemPeriod, Keys.OemPipe, Keys.Oemtilde, Keys.Oemcomma,
+        Keys.NumPad0, Keys.NumPad1, Keys.OemSemicolon, Keys.Home, Keys.ShiftKey, Keys.NumPad3, Keys.NumPad8, Keys.OemBackslash,
+        Keys.D1, Keys.Back, Keys.Control, Keys.D2, Keys.Space, Keys.Alt, Keys.Q, Keys.Tab
+    };
+
+    byte keyboardRowMask = 0;
 
     byte ReadCIA1(CIA.Port port)
     {
-        // TODO
-        return 0;
+        if (port == CIA.Port.A)
+            return keyboardRowMask;
+
+        // Write to Port A = Strobe columns (inverted)
+        // Read from Port B = Mask rows
+
+        byte result = 0;
+        for(var row = 0; row < 8; row++)
+        {
+            if (((keyboardRowMask >> row) & 1) == 1)
+                continue;
+
+            for(var col = 0; col < 8; col++)
+            {
+                var currentKeyIndex = row * 8 + col;
+                var currentKey = _keyboardmap[currentKeyIndex];
+                if (_framebufferForm.IsKeyDown(currentKey))
+                {
+                    result |= (byte)(1 << col);
+                }
+            }
+        }
+
+        return (byte)~result;
     }
 
     void WriteCIA1(CIA.Port port, byte value)
     {
-        // TODO
+        if (port == CIA.Port.A)
+        {
+            keyboardRowMask = value;
+        }
     }
 
     private struct AddressDecodeResult
@@ -154,7 +196,8 @@ class C64
     {
         //0xEA31, // IRQ Vector
         //0xF69B,  // Update time
-        //0xFF48
+        //0xFF48,
+        //0xEA98 // Check keyboard
     };
 
     private void ExecTicks(uint clockgoal6502)
@@ -162,17 +205,20 @@ class C64
         _cpu.ClockTicks6502 = 0;
         for(var i = 0; i < clockgoal6502; i++)
         {
-            //if(_breakpoints.Any(x => x == _cpu.PC))
-            //{
-            //    Console.WriteLine($".,{_cpu.PC.ToHex()}\tA: ${_cpu.A.ToHex()}\tX: ${_cpu.X.ToHex()}\tY: ${_cpu.Y.ToHex()}");
-            //    Console.WriteLine($"SP: ${_cpu.SP.ToHex()}");
-            //    var d = $"{Disassembler.DisassembleNext(Read6502, _cpu.PC).Item1}";
-            //    Console.WriteLine(d);
-            //    Console.WriteLine();
-            //    Console.ReadLine();
-            //}
-            if(_cpu.ClockTicks6502 <= clockgoal6502)
+            if (_breakpoints.Any(x => x == _cpu.PC))
+            {
+                Console.WriteLine($".,{_cpu.PC.ToHex()}\tA: ${_cpu.A.ToHex()}\tX: ${_cpu.X.ToHex()}\tY: ${_cpu.Y.ToHex()}");
+                Console.WriteLine($"SP: ${_cpu.SP.ToHex()}");
+                var d = $"{Disassembler.DisassembleNext(Read6502, _cpu.PC).Item1}";
+                Console.WriteLine(d);
+                Console.WriteLine();
+                Console.ReadLine();
+            }
+            if (_cpu.ClockTicks6502 <= clockgoal6502)
+            {
+                //Console.WriteLine($".,{_cpu.PC.ToHex()}\tA: ${_cpu.A.ToHex()}\tX: ${_cpu.X.ToHex()}\tY: ${_cpu.Y.ToHex()}");
                 _cpu.Step();
+            }
 
             _cia1.Step();
         }
